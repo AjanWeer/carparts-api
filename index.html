@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UK Carparts - Find Your Vehicle</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; padding: 40px; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #2c3e50; }
+        .dropdown-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #34495e; }
+        select { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 16px; background-color: #fff; }
+        select:disabled { background-color: #ecf0f1; cursor: not-allowed; }
+        .btn-search { width: 100%; padding: 12px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; display: none; margin-top: 10px;}
+        .btn-search:hover { background-color: #c0392b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Select Your Vehicle</h2>
+    
+    <div class="dropdown-group">
+        <label>Make</label>
+        <select id="Make"><option value="">Loading...</option></select>
+    </div>
+    <div class="dropdown-group">
+        <label>Model</label>
+        <select id="Model" disabled><option value="">Select Make First</option></select>
+    </div>
+    <div class="dropdown-group">
+        <label>Variant</label>
+        <select id="Variant" disabled><option value="">Select Model First</option></select>
+    </div>
+    <div class="dropdown-group">
+        <label>Body Type</label>
+        <select id="BodyType" disabled><option value="">Select Variant First</option></select>
+    </div>
+    <div class="dropdown-group">
+        <label>Trim</label>
+        <select id="Trim" disabled><option value="">Select Body Type First</option></select>
+    </div>
+    <div class="dropdown-group">
+        <label>Generation / Year</label>
+        <select id="ModelYear" disabled><option value="">Select Trim First</option></select>
+    </div>
+
+    <button id="searchBtn" class="btn-search">Find Body Parts</button>
+</div>
+
+<script>
+    // 1. Setup the connection to your local Python API
+    const API_BASE = "http://127.0.0.1:8000/api/v1/dropdown";
+    
+    // The exact order the customer must click through
+    const order = ["Make", "Model", "Variant", "BodyType", "Trim", "ModelYear"];
+    
+    // Store what the customer has selected so far
+    let selections = {};
+
+    // 2. Function to fetch data from your API
+    async function fetchDropdown(targetColumn) {
+        let url = `${API_BASE}/${targetColumn}?`;
+        
+        // Add previously selected options to the URL (e.g., ?make=BMW&model=3 Series)
+        for (const [key, value] of Object.entries(selections)) {
+            if (value) url += `${key.toLowerCase()}=${encodeURIComponent(value)}&`;
+        }
+
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            populateSelect(targetColumn, data.options);
+        } catch (error) {
+            console.error("Error connecting to API:", error);
+            document.getElementById(targetColumn).innerHTML = `<option value="">Error loading data</option>`;
+        }
+    }
+
+    // 3. Function to put the API data into the HTML dropdown
+    function populateSelect(targetColumn, options) {
+        const selectEl = document.getElementById(targetColumn);
+        selectEl.innerHTML = `<option value="">-- Select ${targetColumn} --</option>`;
+        
+        options.forEach(opt => {
+            selectEl.innerHTML += `<option value="${opt}">${opt}</option>`;
+        });
+        
+        selectEl.disabled = false;
+    }
+
+    // 4. Function to reset dropdowns that are lower down the chain
+    function resetBelow(targetColumn) {
+        const targetIndex = order.indexOf(targetColumn);
+        
+        // Loop through all dropdowns below the one just clicked
+        for (let i = targetIndex + 1; i < order.length; i++) {
+            const nextCol = order[i];
+            const selectEl = document.getElementById(nextCol);
+            selectEl.innerHTML = `<option value="">Select previous option first</option>`;
+            selectEl.disabled = true;
+            delete selections[nextCol]; // Clear saved memory
+        }
+        document.getElementById('searchBtn').style.display = 'none';
+    }
+
+    // 5. Attach event listeners to every dropdown
+    order.forEach(column => {
+        document.getElementById(column).addEventListener('change', (event) => {
+            const selectedValue = event.target.value;
+            
+            if (selectedValue) {
+                selections[column] = selectedValue;
+                resetBelow(column); // Clear anything below
+                
+                // If it's not the final dropdown, fetch the next one
+                const nextIndex = order.indexOf(column) + 1;
+                if (nextIndex < order.length) {
+                    fetchDropdown(order[nextIndex]);
+                } else {
+                    // It IS the final dropdown. Show the Search button!
+                    document.getElementById('searchBtn').style.display = 'block';
+                }
+            } else {
+                // If they selected the blank placeholder, reset everything below
+                resetBelow(column);
+                delete selections[column];
+            }
+        });
+    });
+
+    // 6. Start the process by fetching the Makes immediately when the page loads
+    fetchDropdown("Make");
+
+</script>
+</body>
+</html>

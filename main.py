@@ -113,10 +113,10 @@ def populate_db_from_excel(excel_bytes: bytes, db: Session):
 def startup_event():
     if os.path.exists("vehicles.xlsx"):
         db = SessionLocal()
-        if db.query(Vehicle).count() == 0:
-            with open("vehicles.xlsx", "rb") as f:
-                populate_db_from_excel(f.read(), db)
-            print("✅ Database successfully cleaned and loaded from vehicles.xlsx")
+        # We removed the 'count == 0' check so it ALWAYS refreshes the data
+        with open("vehicles.xlsx", "rb") as f:
+            populate_db_from_excel(f.read(), db)
+        print("✅ Database successfully refreshed from all tabs in vehicles.xlsx")
         db.close()
 
 # ==========================================
